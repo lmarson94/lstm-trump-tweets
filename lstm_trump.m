@@ -1,5 +1,5 @@
 if ~exist("trump2016.mat", "file")
-    
+
     fname = 'tweets/condensed_2016.json'; 
     fid = fopen(fname); 
     raw = fread(fid,inf); 
@@ -7,7 +7,7 @@ if ~exist("trump2016.mat", "file")
     fclose(fid); 
     tweet = jsondecode(str);
     tweet_number = length(tweet);
-    
+
     u = tweet(1).text;
     for i=2:tweet_number
         u = join([u, tweet(i).text]);
@@ -15,7 +15,7 @@ if ~exist("trump2016.mat", "file")
     end_of_tweet = 'ŋ';
     tweet_chars = join([unique(u), end_of_tweet]);
     K = length(tweet_chars);
-  
+
     char_to_ind = containers.Map(num2cell(tweet_chars), 1:K);
     ind_to_char = containers.Map(1:K, num2cell(tweet_chars));
 
@@ -23,7 +23,7 @@ if ~exist("trump2016.mat", "file")
         len = length(tweet(i).text);
         X_chars{i} = zeros(K, len);
         Y_chars{i} = zeros(K, len);
-        
+
         for j=1:len-1
             X_chars{i}(char_to_ind(tweet(i).text(j)), j) = 1;
             Y_chars{i}(char_to_ind(tweet(i).text(j+1)), j) = 1;
@@ -31,7 +31,7 @@ if ~exist("trump2016.mat", "file")
         X_chars{i}(char_to_ind(tweet(i).text(len)), len) = 1;
         Y_chars{i}(K, len) = 1; % end of tweet
     end
-    
+
     save("trump2016.mat", 'X_chars', 'Y_chars', 'K', 'char_to_ind', 'ind_to_char', 'tweet_number', 'end_of_tweet');
 else
     load("trump2016.mat", 'X_chars', 'Y_chars', 'K', 'char_to_ind', 'ind_to_char', 'tweet_number', 'end_of_tweet');
@@ -40,22 +40,28 @@ end
 % hidden state dimension
 m = 100;
 
-%--------------------------------------------------------------------------
-% hyperparameters & network initialization
-%--------------------------------------------------------------------------
-GDparam.epoch = 30;
-GDparam.eta = .1;
-GDparam.epsilon = 1e-8;
-sig = .01;
+if exist("trump2016_param.mat", "file")
+    load('trump2016_param.mat', 'LSTM')
+    
+    seq = syntethize_sequence(LSTM, zeros(m, 1), zeros(m, 1), X_chars{round(rand(1)*(K-1))}(:, 1), K);
+    print_sequence(seq, K, ind_to_char);
+else
+    %--------------------------------------------------------------------------
+    % hyperparameters & network initialization
+    %--------------------------------------------------------------------------
+    GDparam.epoch = 30;
+    GDparam.eta = .1;
+    GDparam.epsilon = 1e-8;
+    sig = .01;
 
-LSTM.b = zeros(4*m, 1);
-LSTM.d = zeros(K, 1);
-LSTM.Uall = randn(4*m, K)*sig;
-LSTM.Wall = randn(4*m, m)*sig;
-LSTM.V = randn(K, m)*sig;
+    LSTM.b = zeros(4*m, 1);
+    LSTM.d = zeros(K, 1);
+    LSTM.Uall = randn(4*m, K)*sig;
+    LSTM.Wall = randn(4*m, m)*sig;
+    LSTM.V = randn(K, m)*sig;
 
-LSTM = AdaGrad(GDparam, LSTM, X_chars, Y_chars, m, ind_to_char, K);
-
+    LSTM = AdaGrad(GDparam, LSTM, X_chars, Y_chars, m, ind_to_char, K);
+end
 %--------------------------------------------------------------------------
 % functions
 %--------------------------------------------------------------------------
@@ -76,12 +82,14 @@ function Y = syntethize_sequence(LSTM, c0, h0, x0, K)
     tweet_max_length = 280;
     
     Y = zeros(length(LSTM.d), 1);
+    Y(1) = find(x0 == 1);
+    
     E = eye(4*m);
 
     c = c0;
     h = h0;
     x = x0;
-    for n=1:tweet_max_length
+    for n=2:tweet_max_length
         a = LSTM.Wall * h + LSTM.Uall * x + LSTM.b;
         
         f = sigmoid(a(1:m));
@@ -110,6 +118,16 @@ function Y = syntethize_sequence(LSTM, c0, h0, x0, K)
         x = zeros(size(x));
         x(ii) = 1;
     end
+end
+
+function print_sequence(seq, K, ind_to_char)
+    out = '';
+    for i=1:length(seq)
+        if seq(i) ~= K && isKey(ind_to_char, seq(i))
+            out = [out, ind_to_char(seq(i))];
+        end
+    end
+    fprintf('%s\n', out)
 end
 
 function L = compute_loss(P, Y)
@@ -252,14 +270,7 @@ function LSTM = AdaGrad(GDparam, LSTM, X, Y, m, ind_to_char, K)
             if mod(update, 500) == 0 || update == 1
                 fprintf('epoch: %i, iteration: %i, smoothed loss: %i\n', e, update, smooth_loss(update))
                 seq = syntethize_sequence(LSTM, zeros(m, 1), zeros(m, 1), X{perm(s)}(:, 1), K);
-                
-                out = '';
-                for i=1:length(seq)
-                    if seq(i) ~= K && isKey(ind_to_char, seq(i))
-                        out = [out, ind_to_char(seq(i))];
-                    end
-                end
-                fprintf('%s\n', out)
+                print_sequence(seq, K, ind_to_char);
             end
         end
     end
