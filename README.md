@@ -12,7 +12,7 @@ Below are some examples of synthesized sequences starting from a random characte
 |"@Gaueshncona: You our would ever in Clinton, who wrates hirginisale one will HISRS! THE AOLD BEBS PORME KYON IS ATC DGIN no @reetwamp &amp; daynian Obama’s …|
 |Wow to year. #MAGA🇺🇸🇺🇸 #TrumpPence16 If Ted Cruz artas, they and Trumps??|
 
-| First Header  | Second Header |
-| ------------- | ------------- |
-| Content Cell  | Content Cell  |
-| Content Cell  | Content Cell  |
+| First Header  |
+| ------------- |
+| Content Cell  |
+| Content Cell  |
